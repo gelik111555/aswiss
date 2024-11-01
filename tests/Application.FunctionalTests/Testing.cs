@@ -1,7 +1,9 @@
-﻿using ASWISS.Domain.Constants;
+﻿using System.Security.Claims;
+using ASWISS.Domain.Constants;
 using ASWISS.Infrastructure.Data;
 using ASWISS.Infrastructure.Identity;
 using MediatR;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -43,6 +45,40 @@ public partial class Testing
 
         await mediator.Send(request);
     }
+
+    public static async Task<TResponse> SendAsync<TResponse>(IRequest<TResponse> request, Dictionary<string, string>? headers = null)
+    {
+        using var scope = _scopeFactory.CreateScope();
+
+        var httpContextAccessor = scope.ServiceProvider.GetRequiredService<IHttpContextAccessor>();
+
+        // Создаем новый HttpContext, если он отсутствует
+        if (httpContextAccessor.HttpContext == null)
+        {
+            httpContextAccessor.HttpContext = new DefaultHttpContext();
+        }
+
+        var httpContext = httpContextAccessor.HttpContext;
+
+        // Добавляем заголовки в HttpContext
+        AddHeadersToContext(httpContext, headers);
+
+        var mediator = scope.ServiceProvider.GetRequiredService<ISender>();
+        return await mediator.Send(request);
+    }
+
+
+    private static void AddHeadersToContext(HttpContext httpContext, Dictionary<string, string>? headers)
+    {
+        if (headers != null)
+        {
+            foreach (var header in headers)
+            {
+                httpContext.Request.Headers[header.Key] = header.Value;
+            }
+        }
+    }
+
 
     public static string? GetUserId()
     {
